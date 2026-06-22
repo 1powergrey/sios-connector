@@ -1,0 +1,144 @@
+openapi: 3.1.0
+info:
+  title: SIOS Connector API
+  description: |
+    Strategic Intelligence Operating System (SIOS) connector.
+    Provides structured, evidence-based intelligence for high-stakes
+    decision-making, legal analysis, negotiation, and executive communication.
+  version: 1.0.0
+  contact:
+    name: SIOS
+    url: https://github.com/1powergrey/sios-connector
+
+servers:
+  - url: https://sios-engine-api.vercel.app
+    description: SIOS production endpoint
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /api/query:
+    post:
+      operationId: querySIOS
+      summary: Submit a query to SIOS
+      description: |
+        Submits a natural language query to the SIOS engine.
+        SIOS runs the full protocol chain (ECP → FCP → ACP → QCP → RCP → OCP → CCP → CSP → PCP → DCP → PAP → XCP)
+        and returns a structured, evidence-scored response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SIOSRequest'
+            examples:
+              legal_analysis:
+                summary: Legal risk analysis
+                value:
+                  message: "Analyze the legal risks of this contract clause"
+                  spaceId: "legal"
+              decision_support:
+                summary: Decision support
+                value:
+                  message: "What are the options for restructuring this negotiation?"
+      responses:
+        '200':
+          description: Structured SIOS response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SIOSResponse'
+        '400':
+          description: Bad request — missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized — invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-sios-key
+      description: SIOS API key. Must be kept server-side and never exposed to clients.
+
+  schemas:
+    SIOSRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: The natural language query or task for SIOS to process.
+          minLength: 1
+          maxLength: 4000
+          example: "What are the key risks in this merger agreement?"
+        spaceId:
+          type: string
+          description: |
+            Optional SIOS space context identifier. Scopes the query to a
+            specific operational domain (e.g. 'legal', 'negotiation', 'intelligence').
+          example: "legal"
+
+    SIOSResponse:
+      type: object
+      required:
+        - status
+        - response
+      properties:
+        status:
+          type: string
+          enum: [success, partial, error]
+          description: Outcome status of the SIOS protocol chain execution.
+        response:
+          type: string
+          description: |
+            Structured SIOS output. Follows DCP format:
+            Action + Reason + Evidence + Assumptions + Risks + Confidence + Next Step.
+        provider:
+          type: string
+          description: Underlying model or engine provider used for this response.
+          example: "claude-sonnet-4-6"
+        confidence:
+          type: string
+          enum: [High, Medium, Low, Unproven]
+          description: CSP confidence score assigned to the conclusion.
+        protocol_trace:
+          type: array
+          items:
+            type: string
+          description: Optional ordered list of protocol steps executed.
+          example: ["ECP", "FCP", "ACP", "OCP", "CSP", "DCP"]
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+        code:
+          type: string
+          description: Machine-readable error code.
